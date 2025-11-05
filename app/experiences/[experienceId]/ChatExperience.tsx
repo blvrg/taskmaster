@@ -282,46 +282,36 @@ export function ChatExperience({
 		veniceParameters,
 	]);
 
+	const characterInitial = displayName.charAt(0).toUpperCase();
+
 	return (
 		<div className={styles.chatRoot}>
-			<div className={styles.chatShell}>
-				<header className={styles.header}>
-					<h1>
-						{experienceName} &middot; Chatting as{" "}
-						<strong>{userDisplayName}</strong>
-					</h1>
-					<div className={styles.pillRow}>
-						<span className={styles.pill}>Venice AI</span>
-						{character.slug && (
-							<span className={styles.pill}>
-								Character: {character.slug}
-							</span>
-						)}
-						{canEditImage && (
-							<span className={styles.pill}>Image edits ready</span>
-						)}
-					</div>
-					{character.photoUrl && (
-						<div className={styles.characterPreview}>
-							<img
-								src={character.photoUrl}
-								alt={displayName}
-								className={styles.characterAvatar}
-							/>
-							<p>
-								<strong>{displayName}</strong>
-							</p>
-						</div>
+			<header className={styles.topBar}>
+				<div className={styles.identity}>
+					{character.photoUrl ? (
+						<img
+							src={character.photoUrl}
+							alt={displayName}
+							className={styles.avatar}
+							referrerPolicy="no-referrer"
+						/>
+					) : (
+						<span className={styles.avatarFallback} aria-hidden>
+							{characterInitial}
+						</span>
 					)}
-				</header>
-
-				{errorMessage && (
-					<div className={styles.errorBanner}>
-						<strong>Heads up:</strong> {errorMessage}
+					<div className={styles.identityText}>
+						<p className={styles.identityLabel}>{experienceName}</p>
+						<h1 className={styles.identityTitle}>
+							Chat with <span>{displayName}</span>
+						</h1>
 					</div>
-				)}
+				</div>
+				<p className={styles.subtle}>Signed in as {userDisplayName}</p>
+			</header>
 
-				<div className={styles.chatContainer}>
+			<main className={styles.mainArea}>
+				<section className={styles.messageRegion}>
 					{messages.length === 0 && !pendingIndicator ? (
 						<div
 							className={cx(
@@ -330,9 +320,9 @@ export function ChatExperience({
 								styles.emptyState,
 							)}
 						>
-							<strong>{displayName}:</strong> Ask me anything. Toggle the
-							camera icon for image generation or the microphone for a
-							narrated reply.
+							<strong>{displayName}:</strong> Ask me anything. Use the
+							camera to switch into image mode or the microphone for
+							voice playback.
 						</div>
 					) : null}
 
@@ -348,9 +338,6 @@ export function ChatExperience({
 											: styles.aiMessage,
 									)}
 								>
-									<strong>
-										{message.role === "user" ? "You" : displayName}:
-									</strong>{" "}
 									{message.content}
 								</div>
 							);
@@ -371,7 +358,9 @@ export function ChatExperience({
 										alt={message.description ?? "Generated visual"}
 									/>
 									{message.description && (
-										<em>{message.description}</em>
+										<span className={styles.caption}>
+											{message.description}
+										</span>
 									)}
 								</div>
 							);
@@ -382,13 +371,12 @@ export function ChatExperience({
 								key={message.id}
 								className={cx(styles.message, styles.aiMessage)}
 							>
-								<strong>{displayName} (voice):</strong>
 								<audio
 									className={styles.audioElement}
 									controls
 									src={`data:${message.mimeType};base64,${message.audioBase64}`}
 								/>
-								<em>{message.text}</em>
+								<span className={styles.caption}>{message.text}</span>
 							</div>
 						);
 					})}
@@ -401,90 +389,102 @@ export function ChatExperience({
 								styles.indicator,
 							)}
 						>
-							<strong>
-								{pendingIndicator === "image"
-									? "Generating image..."
-									: "Typing..."}
-							</strong>
+							{pendingIndicator === "image"
+								? "Generating image..."
+								: "Crafting a reply..."}
 						</div>
 					)}
-				</div>
+				</section>
 
-				<div className={styles.inputContainer}>
-					<input
-						type="text"
-						className={styles.textInput}
-						placeholder={
-							isImageMode
-								? "Describe the image you want to generate..."
-								: "Type your message..."
-						}
-						value={input}
-						disabled={isProcessing}
-						onChange={(event) => setInput(event.target.value)}
-						onKeyDown={(event) => {
-							if (event.key === "Enter") {
-								event.preventDefault();
-								handleSend();
-							}
-						}}
-					/>
+				<div className={styles.composerSection}>
+					{errorMessage && (
+						<div className={styles.errorBanner}>
+							<strong>Heads up:</strong> {errorMessage}
+						</div>
+					)}
 
-					<button
-						type="button"
-						className={cx(
-							styles.toggle,
-							isImageMode && styles.toggleActive,
-						)}
-						aria-pressed={isImageMode}
-						onClick={handleToggleImageMode}
-						disabled={isProcessing}
-						title="Toggle image mode"
-					>
-						📷
-					</button>
-
-					<div
-						className={cx(
-							styles.editContainer,
-							isImageMode && canEditImage && styles.editContainerVisible,
-						)}
-					>
-						<label htmlFor="edit-mode">Edit</label>
+					<div className={styles.inputContainer}>
 						<input
-							id="edit-mode"
-							type="checkbox"
-							checked={isEditMode && canEditImage}
-							onChange={() => setIsEditMode((prev) => !prev)}
-							disabled={!canEditImage || isProcessing || !isImageMode}
+							type="text"
+							className={styles.textInput}
+							placeholder={
+								isImageMode
+									? "Describe the visual you want..."
+									: "Send a message..."
+							}
+							value={input}
+							disabled={isProcessing}
+							onChange={(event) => setInput(event.target.value)}
+							onKeyDown={(event) => {
+								if (event.key === "Enter") {
+									event.preventDefault();
+									handleSend();
+								}
+							}}
 						/>
+
+						<div className={styles.actions}>
+							<button
+								type="button"
+								className={cx(
+									styles.toggle,
+									isImageMode && styles.toggleActive,
+								)}
+								aria-pressed={isImageMode}
+								onClick={handleToggleImageMode}
+								disabled={isProcessing}
+								title="Toggle image mode"
+							>
+								📷
+							</button>
+
+							<div
+								className={cx(
+									styles.editContainer,
+									isImageMode &&
+										canEditImage &&
+										styles.editContainerVisible,
+								)}
+							>
+								<label htmlFor="edit-mode">Edit</label>
+								<input
+									id="edit-mode"
+									type="checkbox"
+									checked={isEditMode && canEditImage}
+									onChange={() => setIsEditMode((prev) => !prev)}
+									disabled={
+										!canEditImage || isProcessing || !isImageMode
+									}
+								/>
+							</div>
+
+							<button
+								type="button"
+								className={cx(
+									styles.toggle,
+									isVoiceMode && styles.toggleActive,
+								)}
+								aria-pressed={isVoiceMode}
+								onClick={handleToggleVoiceMode}
+								disabled={isProcessing}
+								title="Toggle voice mode"
+							>
+								🗣️
+							</button>
+
+							<button
+								type="button"
+								className={styles.primaryButton}
+								onClick={handleSend}
+								disabled={isProcessing || !input.trim()}
+								title="Send message"
+							>
+								➤
+							</button>
+						</div>
 					</div>
-
-					<button
-						type="button"
-						className={cx(
-							styles.toggle,
-							isVoiceMode && styles.toggleActive,
-						)}
-						aria-pressed={isVoiceMode}
-						onClick={handleToggleVoiceMode}
-						disabled={isProcessing}
-						title="Toggle voice mode"
-					>
-						🗣️
-					</button>
-
-					<button
-						type="button"
-						className={styles.primaryButton}
-						onClick={handleSend}
-						disabled={isProcessing || !input.trim()}
-						title="Send message"
-					>
-						➤
-					</button>
 				</div>
-			</div>
+			</main>
 		</div>
 	);
 }
