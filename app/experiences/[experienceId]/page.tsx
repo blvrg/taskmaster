@@ -5,9 +5,9 @@ import { ChatExperience } from "./ChatExperience";
 export default async function ExperiencePage({
 	params,
 }: {
-	params: { experienceId: string };
+	params: Promise<{ experienceId: string }>;
 }) {
-	const { experienceId } = params;
+	const { experienceId } = await params;
 	// Ensure the user is logged in on whop.
 	const { userId } = await whopsdk.verifyUserToken(await headers());
 
