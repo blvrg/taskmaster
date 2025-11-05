@@ -1,5 +1,3 @@
-import { Buffer } from "node:buffer";
-
 const VENICE_BASE_URL = "https://api.venice.ai/api/v1";
 
 type VeniceRequestInit = Omit<RequestInit, "headers"> & {
