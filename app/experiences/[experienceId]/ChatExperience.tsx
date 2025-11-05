@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import type { VeniceMessage } from "@/lib/venice";
 import styles from "./ChatExperience.module.css";
 
 type ChatExperienceProps = {
@@ -70,7 +71,7 @@ export function ChatExperience({
 		character.photoUrl && character.photoUrl.trim().length > 0,
 	);
 
-	const historyForCompletion = useMemo(
+	const historyForCompletion = useMemo<VeniceMessage[]>(
 		() =>
 			messages
 				.filter(
@@ -188,12 +189,13 @@ export function ChatExperience({
 					return updated;
 				});
 			} else {
-				const requestMessages = [...historyForCompletion, userMessage].map(
-					(message) => ({
-						role: message.role,
-						content: message.content,
-					}),
-				);
+				const requestMessages: VeniceMessage[] = [
+					...historyForCompletion,
+					{
+						role: userMessage.role,
+						content: userMessage.content,
+					},
+				];
 
 				if (!character.slug) {
 					requestMessages.unshift({
