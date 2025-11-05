@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { VeniceMessage } from "@/lib/venice";
 import styles from "./ChatExperience.module.css";
 
@@ -50,12 +50,42 @@ function randomId(): string {
 	return Math.random().toString(36).slice(2);
 }
 
+type ChatThread = {
+	id: string;
+	name: string;
+	createdAt: number;
+	messages: ChatMessage[];
+};
+
+type StoredThreadsState = {
+	activeThreadId: string;
+	threads: ChatThread[];
+};
+
+const STORAGE_KEY = "venice-chat-threads";
+
+function createThread(name?: string): ChatThread {
+	return {
+		id: randomId(),
+		name: name ?? "New chat",
+		createdAt: Date.now(),
+		messages: [],
+	};
+}
+
 export function ChatExperience({
 	character,
 	experienceName,
 	userDisplayName,
 }: ChatExperienceProps) {
-	const [messages, setMessages] = useState<ChatMessage[]>([]);
+	const [threads, setThreads] = useState<ChatThread[]>(() => {
+		const initial = createThread("Session 1");
+		return [initial];
+	});
+	const [activeThreadId, setActiveThreadId] = useState<string>(
+		() => threads[0]?.id ?? "",
+	);
+	const [isHydrated, setIsHydrated] = useState(false);
 	const [input, setInput] = useState("");
 	const [isImageMode, setIsImageMode] = useState(false);
 	const [isVoiceMode, setIsVoiceMode] = useState(false);
@@ -71,9 +101,56 @@ export function ChatExperience({
 		character.photoUrl && character.photoUrl.trim().length > 0,
 	);
 
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+		try {
+			const saved = window.localStorage.getItem(STORAGE_KEY);
+			if (saved) {
+				const parsed = JSON.parse(saved) as StoredThreadsState;
+				if (Array.isArray(parsed?.threads) && parsed.threads.length > 0) {
+					setThreads(parsed.threads);
+					const storedActiveId = parsed.activeThreadId;
+					if (
+						storedActiveId &&
+						parsed.threads.some((thread) => thread.id === storedActiveId)
+					) {
+						setActiveThreadId(storedActiveId);
+					} else {
+						setActiveThreadId(parsed.threads[0]!.id);
+					}
+				}
+			}
+		} catch (error) {
+			console.warn("Unable to hydrate Venice threads from storage:", error);
+		} finally {
+			setIsHydrated(true);
+		}
+	}, []);
+
+	useEffect(() => {
+		if (!isHydrated || typeof window === "undefined") return;
+		const state: StoredThreadsState = {
+			activeThreadId,
+			threads,
+		};
+		try {
+			window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+		} catch (error) {
+			console.warn("Unable to persist Venice threads:", error);
+		}
+	}, [activeThreadId, threads, isHydrated]);
+
+	const activeThread = useMemo(() => {
+		const resolved =
+			threads.find((thread) => thread.id === activeThreadId) ?? threads[0];
+		return resolved ?? null;
+	}, [threads, activeThreadId]);
+
+	const activeMessages = activeThread?.messages ?? [];
+
 	const historyForCompletion = useMemo<VeniceMessage[]>(
 		() =>
-			messages
+			activeMessages
 				.filter(
 					(message): message is Extract<ChatMessage, { type: "text" }> =>
 						message.type === "text",
@@ -83,7 +160,7 @@ export function ChatExperience({
 					role: message.role,
 					content: message.content,
 				})),
-		[messages],
+		[activeMessages],
 	);
 
 	const veniceParameters = useMemo(() => {
@@ -123,12 +200,49 @@ export function ChatExperience({
 		});
 	}, []);
 
+	const updateThreadMessages = useCallback(
+		(
+			threadId: string,
+			updater: (messages: ChatMessage[]) => ChatMessage[],
+		) => {
+			setThreads((prev) =>
+				prev.map((thread) =>
+					thread.id === threadId
+						? {
+								...thread,
+								messages: updater(thread.messages),
+							}
+						: thread,
+				),
+			);
+		},
+		[],
+	);
+
+	const handleSelectThread = useCallback((threadId: string) => {
+		setActiveThreadId(threadId);
+		setErrorMessage(null);
+		setPendingIndicator(null);
+	}, []);
+
+	const handleCreateThread = useCallback(() => {
+		const newThread = createThread(`Chat ${threads.length + 1}`);
+		setThreads((prev) => [...prev, newThread]);
+		setActiveThreadId(newThread.id);
+		setInput("");
+		setErrorMessage(null);
+		setPendingIndicator(null);
+	}, [threads.length]);
+
 	const handleSend = useCallback(async () => {
 		if (!input.trim() || isProcessing) return;
+		if (!activeThread) return;
 		const trimmedInput = input.trim();
 		setInput("");
 		setIsProcessing(true);
 		setErrorMessage(null);
+
+		const targetThreadId = activeThread.id;
 
 		const userMessage: ChatMessage = {
 			id: randomId(),
@@ -137,7 +251,7 @@ export function ChatExperience({
 			content: trimmedInput,
 		};
 
-		setMessages((prev) => [...prev, userMessage]);
+		updateThreadMessages(targetThreadId, (prev) => [...prev, userMessage]);
 
 		const currentImageMode = isImageMode;
 		const currentVoiceMode = isVoiceMode;
@@ -174,9 +288,8 @@ export function ChatExperience({
 					description: data.description || undefined,
 				};
 
-				setMessages((prev) => {
+				updateThreadMessages(targetThreadId, (prev) => {
 					const updated = [...prev, imageMessage];
-
 					if (data.description) {
 						updated.push({
 							id: randomId(),
@@ -185,7 +298,6 @@ export function ChatExperience({
 							content: `Here is ${data.description}`,
 						});
 					}
-
 					return updated;
 				});
 			} else {
@@ -230,7 +342,10 @@ export function ChatExperience({
 					content: data.reply,
 				};
 
-				setMessages((prev) => [...prev, aiMessage]);
+				updateThreadMessages(targetThreadId, (prev) => [
+					...prev,
+					aiMessage,
+				]);
 
 				if (
 					currentVoiceMode &&
@@ -245,14 +360,17 @@ export function ChatExperience({
 						mimeType: data.audio.mimeType,
 						text: data.reply,
 					};
-					setMessages((prev) => [...prev, audioMessage]);
+					updateThreadMessages(targetThreadId, (prev) => [
+						...prev,
+						audioMessage,
+					]);
 				}
 			}
 		} catch (error) {
 			const message =
 				error instanceof Error ? error.message : "Something went wrong.";
 
-			setMessages((prev) => [
+			updateThreadMessages(targetThreadId, (prev) => [
 				...prev,
 				{
 					id: randomId(),
@@ -279,7 +397,9 @@ export function ChatExperience({
 		character.photoUrl,
 		character.slug,
 		historyForCompletion,
+		updateThreadMessages,
 		veniceParameters,
+		activeThread,
 	]);
 
 	const characterInitial = displayName.charAt(0).toUpperCase();
@@ -311,8 +431,36 @@ export function ChatExperience({
 			</header>
 
 			<main className={styles.mainArea}>
+				<nav className={styles.threadBar}>
+					<div className={styles.threadList}>
+						{threads.map((thread) => (
+							<button
+								key={thread.id}
+								type="button"
+								className={cx(
+									styles.threadButton,
+									thread.id === activeThread?.id &&
+										styles.threadButtonActive,
+								)}
+								onClick={() => handleSelectThread(thread.id)}
+								disabled={thread.id === activeThread?.id}
+								title={`Switch to ${thread.name}`}
+							>
+								{thread.name}
+							</button>
+						))}
+					</div>
+					<button
+						type="button"
+						className={styles.newThreadButton}
+						onClick={handleCreateThread}
+					>
+						＋ New chat
+					</button>
+				</nav>
+
 				<section className={styles.messageRegion}>
-					{messages.length === 0 && !pendingIndicator ? (
+					{activeMessages.length === 0 && !pendingIndicator ? (
 						<div
 							className={cx(
 								styles.message,
@@ -326,7 +474,7 @@ export function ChatExperience({
 						</div>
 					) : null}
 
-					{messages.map((message) => {
+					{activeMessages.map((message) => {
 						if (message.type === "text") {
 							return (
 								<div
