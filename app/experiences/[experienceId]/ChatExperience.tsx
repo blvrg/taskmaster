@@ -234,6 +234,25 @@ export function ChatExperience({
 		setPendingIndicator(null);
 	}, [threads.length]);
 
+	const handleDeleteThread = useCallback(
+		(threadId: string) => {
+			setThreads((prev) => {
+				if (prev.length <= 1) {
+					return prev;
+				}
+				const filtered = prev.filter((thread) => thread.id !== threadId);
+				if (threadId === activeThreadId) {
+					const nextThread = filtered[filtered.length - 1];
+					if (nextThread) {
+						setActiveThreadId(nextThread.id);
+					}
+				}
+				return filtered;
+			});
+		},
+		[activeThreadId],
+	);
+
 	const handleSend = useCallback(async () => {
 		if (!input.trim() || isProcessing) return;
 		if (!activeThread) return;
@@ -434,20 +453,30 @@ export function ChatExperience({
 				<nav className={styles.threadBar}>
 					<div className={styles.threadList}>
 						{threads.map((thread) => (
-							<button
-								key={thread.id}
-								type="button"
-								className={cx(
-									styles.threadButton,
-									thread.id === activeThread?.id &&
-										styles.threadButtonActive,
-								)}
-								onClick={() => handleSelectThread(thread.id)}
-								disabled={thread.id === activeThread?.id}
-								title={`Switch to ${thread.name}`}
-							>
-								{thread.name}
-							</button>
+							<div key={thread.id} className={styles.threadPill}>
+								<button
+									type="button"
+									className={cx(
+										styles.threadButton,
+										thread.id === activeThread?.id &&
+											styles.threadButtonActive,
+									)}
+									onClick={() => handleSelectThread(thread.id)}
+									disabled={thread.id === activeThread?.id}
+									title={`Switch to ${thread.name}`}
+								>
+									{thread.name}
+								</button>
+								<button
+									type="button"
+									className={styles.threadDeleteButton}
+									onClick={() => handleDeleteThread(thread.id)}
+									disabled={threads.length <= 1}
+									title="Delete chat"
+								>
+									×
+								</button>
+							</div>
 						))}
 					</div>
 					<button

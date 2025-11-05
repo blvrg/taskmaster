@@ -116,7 +116,7 @@
 .threadButton {
 	border: 1px solid rgba(148, 163, 184, 0.28);
 	border-radius: 14px;
-	padding: 8px 14px;
+	padding: 7px 12px;
 	font-size: 14px;
 	color: rgba(51, 65, 85, 0.85);
 	background: rgba(148, 163, 184, 0.1);
@@ -149,6 +149,40 @@
 	border-color: rgba(99, 102, 241, 0.34);
 	color: rgba(46, 52, 75, 0.95);
 	box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.12);
+}
+
+.threadPill {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.threadDeleteButton {
+	border: none;
+	background: transparent;
+	color: rgba(148, 163, 184, 0.9);
+	cursor: pointer;
+	font-size: 16px;
+	line-height: 1;
+	padding: 4px;
+	border-radius: 8px;
+	transition:
+		color 0.18s ease,
+		background 0.18s ease,
+		transform 0.18s ease;
+}
+
+.threadDeleteButton:hover {
+	color: rgb(239, 68, 68);
+	background: rgba(239, 68, 68, 0.12);
+	transform: translateY(-1px);
+}
+
+.threadDeleteButton:disabled {
+	cursor: not-allowed;
+	opacity: 0.5;
+	background: transparent;
+	color: rgba(148, 163, 184, 0.6);
 }
 
 .newThreadButton {
