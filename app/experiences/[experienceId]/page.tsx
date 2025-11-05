@@ -26,7 +26,16 @@ export default async function ExperiencePage({
 	};
 
 	if (!access?.has_access) {
-		throw new Error("User does not have access to this experience.");
+		return (
+			<div className="flex min-h-svh flex-col items-center justify-center gap-4 p-6 text-center">
+				<h1 className="text-7 font-semibold">Access required</h1>
+				<p className="max-w-md text-3 text-gray-10">
+					It looks like you don&apos;t currently have access to this
+					experience. Please check your membership or contact support if
+					you believe this is a mistake.
+				</p>
+			</div>
+		);
 	}
 
 	return (
