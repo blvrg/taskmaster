@@ -25,7 +25,7 @@ export default async function ExperiencePage({
 		photoUrl: process.env.NEXT_PUBLIC_VENICE_CHARACTER_PHOTO || "",
 	};
 
-	if (!access?.hasAccess) {
+	if (!access?.has_access) {
 		throw new Error("User does not have access to this experience.");
 	}
 
